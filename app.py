@@ -1,15 +1,10 @@
 import time
-from flask import Flask, Response, redirect, abort
+from flask import Flask, Response, redirect, abort, request
 import yt_dlp
 
 app = Flask(__name__)
 
-# CONFIGURATION
-BASE_IP = "10.0.0.220" 
-PORT = 8001
-
-# --- PERMANENT GURDWARA SOURCES (Channel Handles) ---
-# These links never change, even if the Gurdwara starts a new stream.
+# --- SOURCES ---
 YOUTUBE_SOURCES = [
     {"title": "Darbar Sahib Gurdwara Amritsar", "url": "https://www.youtube.com/@SGPCSriAmritsar/live"},
     {"title": "Dashmesh Sikh Gurdwaras Calgary", "url": "https://www.youtube.com/@dashmeshculturecentrecalgary/live"},
@@ -26,46 +21,37 @@ YOUTUBE_SOURCES = [
 ]
 
 url_cache = {}
-CACHE_DURATION = 3600 # Check for new stream every 1 hour
+CACHE_DURATION = 3600 
 
 def get_automated_live_url(video_index):
     now = time.time()
-    
-    # Return cached link if it's fresh
     if video_index in url_cache and now < url_cache[video_index]['expires']:
         return url_cache[video_index]['url']
 
     source_url = YOUTUBE_SOURCES[video_index]['url']
-    
-    # yt-dlp options to find the active stream on a channel page
-    ydl_opts = {
-        'format': 'best',
-        'quiet': True,
-        'no_warnings': True,
-        'playlist_items': '1', # Grabs the current live video
-    }
+    ydl_opts = {'format': 'best', 'quiet': True, 'no_warnings': True, 'playlist_items': '1'}
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            print(f"[*] Auto-discovering live stream for: {YOUTUBE_SOURCES[video_index]['title']}")
             info = ydl.extract_info(source_url, download=False)
-            
-            # If channel has a live stream, yt-dlp finds the direct .m3u8 manifest
             direct_url = info.get('url')
-            
             if direct_url:
                 url_cache[video_index] = {'url': direct_url, 'expires': now + CACHE_DURATION}
                 return direct_url
-    except Exception as e:
-        print(f"[!] {YOUTUBE_SOURCES[video_index]['title']} might be offline: {e}")
+    except Exception:
         return None
+
+@app.route('/')
+def home():
+    return "Server is Live. Access /playlist.m3u for the list."
 
 @app.route('/playlist.m3u')
 def generate_m3u():
-    base_url = f"http://{BASE_IP}:{PORT}" 
+    # Detects your Render URL automatically
+    base_url = request.host_url.rstrip('/') 
     m3u_lines = ["#EXTM3U"]
     for i, item in enumerate(YOUTUBE_SOURCES):
-        m3u_lines.append(f'#EXTINF:-1 group-title="Gurdwaras" tvg-name="{item["title"]}", {item["title"]}')
+        m3u_lines.append(f'#EXTINF:-1 group-title="Gurdwaras", {item["title"]}')
         m3u_lines.append(f"{base_url}/play/{i}")
     return Response("\n".join(m3u_lines), mimetype='audio/x-mpegurl')
 
@@ -73,15 +59,9 @@ def generate_m3u():
 def play(video_id):
     if video_id >= len(YOUTUBE_SOURCES):
         abort(404)
-    
-    # The script now automatically finds the new "watch" link if it changed
     direct_link = get_automated_live_url(video_id)
     if direct_link:
         return redirect(direct_link)
-    else:
-        return "Stream is currently offline. The channel link is still valid.", 500
+    return "Stream Offline", 503
 
-if __name__ == '__main__':
-    print(f"--- 100% Hands-Off M3U Server ---")
-    print(f"Playlist: http://{BASE_IP}:{PORT}/playlist.m3u")
-    app.run(host='0.0.0.0', port=PORT, debug=False)
+# REMOVED: app.run() block. Render uses Gunicorn instead.

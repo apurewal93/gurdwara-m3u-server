@@ -1,4 +1,5 @@
 import time
+import os  # Added to read environment variables
 from flask import Flask, Response, redirect, abort, request
 import yt_dlp
 
@@ -29,7 +30,18 @@ def get_automated_live_url(video_index):
         return url_cache[video_index]['url']
 
     source_url = YOUTUBE_SOURCES[video_index]['url']
-    ydl_opts = {'format': 'best', 'quiet': True, 'no_warnings': True, 'playlist_items': '1'}
+    
+    # --- PROXY CONFIGURATION ---
+    # Looks for QUOTAGUARDSTATIC_URL in your Render settings
+    proxy_url = os.environ.get('QUOTAGUARDSTATIC_URL')
+
+    ydl_opts = {
+        'format': 'best', 
+        'quiet': True, 
+        'no_warnings': True, 
+        'playlist_items': '1',
+        'proxy': proxy_url  # yt-dlp uses this to route traffic
+    }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -38,7 +50,8 @@ def get_automated_live_url(video_index):
             if direct_url:
                 url_cache[video_index] = {'url': direct_url, 'expires': now + CACHE_DURATION}
                 return direct_url
-    except Exception:
+    except Exception as e:
+        print(f"Extraction Error for {source_url}: {e}")
         return None
 
 @app.route('/')
@@ -47,21 +60,6 @@ def home():
 
 @app.route('/playlist.m3u')
 def generate_m3u():
-    # Detects your Render URL automatically
     base_url = request.host_url.rstrip('/') 
     m3u_lines = ["#EXTM3U"]
-    for i, item in enumerate(YOUTUBE_SOURCES):
-        m3u_lines.append(f'#EXTINF:-1 group-title="Gurdwaras", {item["title"]}')
-        m3u_lines.append(f"{base_url}/play/{i}")
-    return Response("\n".join(m3u_lines), mimetype='audio/x-mpegurl')
-
-@app.route('/play/<int:video_id>')
-def play(video_id):
-    if video_id >= len(YOUTUBE_SOURCES):
-        abort(404)
-    direct_link = get_automated_live_url(video_id)
-    if direct_link:
-        return redirect(direct_link)
-    return "Stream Offline", 503
-
-# REMOVED: app.run() block. Render uses Gunicorn instead.
+    for i, item in enumerate(YOUT

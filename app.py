@@ -4,7 +4,6 @@ from flask import Flask, Response, redirect, abort, request
 app = Flask(__name__)
 
 # --- SOURCES ---
-# Using the standard channel live URLs. 
 YOUTUBE_SOURCES = [
     {"title": "Darbar Sahib Gurdwara Amritsar", "url": "https://www.youtube.com/SGPCSriAmritsar/live"},
     {"title": "Dashmesh Sikh Gurdwaras Calgary", "url": "https://www.youtube.com/dashmeshculturecentrecalgary/live"},
@@ -26,7 +25,7 @@ def home():
 
 @app.route('/playlist.m3u')
 def generate_m3u():
-    # Detects the host URL automatically (e.g., your-app.onrender.com)
+    # Detects the Render host URL automatically
     base_url = request.host_url.rstrip('/') 
     m3u_lines = ["#EXTM3U"]
     
@@ -41,9 +40,7 @@ def play(video_id):
     if video_id >= len(YOUTUBE_SOURCES):
         abort(404)
         
-    # Redirect directly to the YouTube Live URL.
-    # This allows the PLAYER (VLC/Phone) to handle the extraction.
+    # Simply redirect to the YouTube Live page.
+    # VLC or your IPTV player will handle the stream extraction locally.
     target_url = YOUTUBE_SOURCES[video_id]['url']
     return redirect(target_url)
-
-# Gunicorn runs the 'app' object directly on Render/Railway

@@ -6,7 +6,6 @@ import yt_dlp
 app = Flask(__name__)
 
 # --- SOURCES ---
-# Add your YouTube live URLs here
 YOUTUBE_SOURCES = [
     {"title": "Darbar Sahib Gurdwara Amritsar", "url": "https://www.youtube.com/@SGPCSriAmritsar/live"},
     {"title": "Dashmesh Sikh Gurdwaras Calgary", "url": "https://www.youtube.com/@dashmeshculturecentrecalgary/live"},
@@ -28,22 +27,24 @@ CACHE_DURATION = 3600  # Cache for 1 hour
 def get_automated_live_url(video_index):
     now = time.time()
     
-    # Return cached URL if it hasn't expired
     if video_index in url_cache and now < url_cache[video_index]['expires']:
         return url_cache[video_index]['url']
 
     source_url = YOUTUBE_SOURCES[video_index]['url']
     
     # --- PROXY CONFIGURATION ---
-    # Pulls the URL from Render Environment Variables
     proxy_url = os.environ.get('QUOTAGUARDSTATIC_URL')
 
+    # --- UPDATED YDL_OPTS ---
     ydl_opts = {
         'format': 'best',
         'quiet': True,
         'no_warnings': True,
         'playlist_items': '1',
-        'proxy': proxy_url
+        'proxy': proxy_url,            # Use your Static IP proxy
+        'cookiefile': 'cookies.txt',   # Path to your uploaded cookies file
+        'nocheckcertificate': True,    # Prevents SSL errors through proxies
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     
     try:
@@ -66,7 +67,6 @@ def home():
 
 @app.route('/playlist.m3u')
 def generate_m3u():
-    # Automatically detects your domain (Render or Railway)
     base_url = request.host_url.rstrip('/') 
     m3u_lines = ["#EXTM3U"]
     
@@ -84,9 +84,6 @@ def play(video_id):
     direct_link = get_automated_live_url(video_id)
     
     if direct_link:
-        # Redirect the player (VLC/OttPlayer) to the actual YouTube stream
         return redirect(direct_link)
         
     return "Stream Offline or Proxy Error", 503
-
-# Note: No app.run() needed for Render/Railway (Gunicorn handles it)

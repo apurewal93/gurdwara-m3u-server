@@ -22,11 +22,12 @@ YOUTUBE_SOURCES = [
 ]
 
 url_cache = {}
-CACHE_DURATION = 3600  # Cache for 1 hour
+CACHE_DURATION = 1800  # Reduced to 30 mins for live manifests
 
 def get_automated_live_url(video_index):
     now = time.time()
     
+    # Return cached URL if it hasn't expired
     if video_index in url_cache and now < url_cache[video_index]['expires']:
         return url_cache[video_index]['url']
 
@@ -35,22 +36,24 @@ def get_automated_live_url(video_index):
     # --- PROXY CONFIGURATION ---
     proxy_url = os.environ.get('QUOTAGUARDSTATIC_URL')
 
-    # --- UPDATED YDL_OPTS ---
     ydl_opts = {
-        'format': 'best',
+        # Target HLS stream specifically to avoid IP-bound raw video links
+        'format': 'best[ext=mp4]/best', 
         'quiet': True,
         'no_warnings': True,
-        'playlist_items': '1',
-        'proxy': proxy_url,            # Use your Static IP proxy
-        'cookiefile': 'cookies.txt',   # Path to your uploaded cookies file
-        'nocheckcertificate': True,    # Prevents SSL errors through proxies
+        'proxy': proxy_url,            # Use QuotaGuard Static IP
+        'cookiefile': 'cookies.txt',   # Use your uploaded cookies.txt
+        'nocheckcertificate': True,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(source_url, download=False)
-            direct_url = info.get('url')
+            
+            # CRITICAL: Prefer manifest_url (M3U8) which is better for cross-IP playback
+            direct_url = info.get('manifest_url') or info.get('url')
+            
             if direct_url:
                 url_cache[video_index] = {
                     'url': direct_url, 
@@ -84,6 +87,7 @@ def play(video_id):
     direct_link = get_automated_live_url(video_id)
     
     if direct_link:
+        # Redirects your player to the Master HLS Manifest
         return redirect(direct_link)
         
     return "Stream Offline or Proxy Error", 503

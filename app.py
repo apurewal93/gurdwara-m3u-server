@@ -30,23 +30,26 @@ YOUTUBE_SOURCES = [
 ]
 
 def get_working_link(youtube_url):
-    """Uses the residential proxy to bypass the datacenter blacklist."""
     ydl_opts = {
         'proxy': RESIDENTIAL_PROXY,
         'quiet': True,
         'no_warnings': True,
-        'format': 'best',
-        # Impersonate a real browser to help the residential IP look natural
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        # THE 2026 FIX: Disables the client YouTube is currently blocking
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['default', '-android_sdkless']
+            }
+        },
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
     }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(youtube_url, download=False)
-            # Return the direct manifest or video URL
             return info.get('url')
     except Exception as e:
-        print(f"Extraction Error: {e}")
+        # This prevents the "Internal Server Error" screen
+        print(f"CRITICAL ERROR: {str(e)}")
         return None
 
 @app.route('/')

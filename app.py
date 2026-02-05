@@ -53,7 +53,7 @@ def get_working_link(youtube_url):
     except Exception as e:
         logging.error(f"Extraction Error for {youtube_url}: {e}")
         return None
-
+}
 @app.route('/')
 def home():
     return "IPTV Gateway Online. Playlist at /playlist.m3u"

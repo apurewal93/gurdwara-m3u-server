@@ -35,26 +35,26 @@ def get_working_link(youtube_url):
         'proxy': RESIDENTIAL_PROXY,
         'quiet': True,
         'no_warnings': True,
+        # Ensures 720p with audio/video combined
         'format': 'best[height<=720]',
         'extractor_args': {
             'youtube': {
-                # FEB 2026: Removing 'tv' and using '-android_sdkless' is the current fix
-                'player_client': ['web_embedded', 'web', '-android_sdkless'],
-                # This helps bypass the "Sign in to confirm you are not a bot" block
+                # FEB 2026 FIX: Use default but subtract the broken android client
+                'player_client': ['default', '-android_sdkless'],
                 'skip': ['webpage', 'hls_manifest'],
             }
         },
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'socket_timeout': 10  # Prevents Render from hanging forever
     }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # We add a 10-second timeout to prevent the app from hanging
+            # ONLY CALL THIS ONCE
             info = ydl.extract_info(youtube_url, download=False, process=True)
             return info.get('url')
     except Exception as e:
-        # Check your Render 'Logs' tab—this will tell us if it's a 403 or a Sign-in error
-        logging.error(f"YouTube Error: {e}")
+        logging.error(f"YouTube Extraction Error: {e}")
         return None
 
 @app.route('/')

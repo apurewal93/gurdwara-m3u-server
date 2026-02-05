@@ -3,7 +3,7 @@ import yt_dlp
 import logging
 from flask import Flask, Response, redirect, abort, request
 
-# Setup logging - check the 'Logs' tab on Render to see extraction details
+# Setup logging - check the 'Logs' tab on Render to see errors
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 
@@ -35,7 +35,7 @@ def get_working_link(youtube_url):
         'proxy': RESIDENTIAL_PROXY,
         'quiet': True,
         'no_warnings': True,
-        # 720p limit + combined audio/video for best stability in Chrome
+        # 720p limit for smooth streaming in Chrome
         'format': 'best[height<=720]',
         'extractor_args': {
             'youtube': {
@@ -55,7 +55,7 @@ def get_working_link(youtube_url):
 
 @app.route('/')
 def home():
-    return "Gurdwara Stream Gateway Online. Playlist: /playlist.m3u"
+    return "Gurdwara Gateway Online. Playlist: /playlist.m3u"
 
 @app.route('/playlist.m3u')
 def generate_m3u():
@@ -75,12 +75,10 @@ def play(video_id):
     working_link = get_working_link(source_url)
     
     if not working_link:
-        # Returns a 503 instead of crashing, tells you to check logs
-        return "Stream extraction failed. Check Render logs for Proxy or YouTube errors.", 503
+        return "Extraction failed. Check logs.", 503
 
     return redirect(working_link)
 
 if __name__ == "__main__":
-    # Use environment port for Render compatibility
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)

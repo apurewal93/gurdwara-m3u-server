@@ -35,7 +35,7 @@ def get_working_link(youtube_url):
         'proxy': RESIDENTIAL_PROXY,
         'quiet': True,
         'no_warnings': True,
-        # THE FEB 2026 FIX: Use web_embedded to bypass the android_sdkless block
+        # FEB 2026 FIX: Use web_embedded and web to bypass the latest blocks
         'extractor_args': {
             'youtube': {
                 'player_client': ['web_embedded', 'web', 'tv'],
@@ -45,12 +45,16 @@ def get_working_link(youtube_url):
     }
     
     try:
+        # We ensure yt_dlp is imported at the top of the file
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(youtube_url, download=False)
+            # This gets the direct streaming manifest link
             return info.get('url')
     except Exception as e:
+        # This will now appear in your Render "Logs" tab
         logging.error(f"Extraction Error for {youtube_url}: {e}")
         return None
+   
 
 @app.route('/')
 def home():

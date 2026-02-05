@@ -3,7 +3,7 @@ import yt_dlp
 import logging
 from flask import Flask, Response, redirect, abort, request
 
-# Setup logging for Render dashboard
+# Setup logging - check the 'Logs' tab on Render to see extraction details
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 
@@ -35,9 +35,8 @@ def get_working_link(youtube_url):
         'proxy': RESIDENTIAL_PROXY,
         'quiet': True,
         'no_warnings': True,
-        # 720p STABILITY FIX: 'best' ensures we get a pre-merged video+audio file.
-        # This prevents 'video-only' 1080p files that have no sound.
-        'format': 'best[height<=720]', 
+        # 720p limit + combined audio/video for best stability in Chrome
+        'format': 'best[height<=720]',
         'extractor_args': {
             'youtube': {
                 'player_client': ['web_embedded', 'web', 'tv'],
@@ -51,12 +50,12 @@ def get_working_link(youtube_url):
             info = ydl.extract_info(youtube_url, download=False)
             return info.get('url')
     except Exception as e:
-        logging.error(f"Extraction Error for {youtube_url}: {e}")
+        logging.error(f"YouTube Error: {e}")
         return None
-}
+
 @app.route('/')
 def home():
-    return "IPTV Gateway Online. Playlist at /playlist.m3u"
+    return "Gurdwara Stream Gateway Online. Playlist: /playlist.m3u"
 
 @app.route('/playlist.m3u')
 def generate_m3u():
@@ -69,21 +68,19 @@ def generate_m3u():
 
 @app.route('/play/<int:video_id>')
 def play(video_id):
-    try:
-        if video_id >= len(YOUTUBE_SOURCES):
-            abort(404)
+    if video_id < 0 or video_id >= len(YOUTUBE_SOURCES):
+        abort(404)
         
-        source_url = YOUTUBE_SOURCES[video_id]['url']
-        working_link = get_working_link(source_url)
-        
-        if not working_link:
-            return f"Error: YouTube blocked or no 720p format found. Check Logs.", 503
+    source_url = YOUTUBE_SOURCES[video_id]['url']
+    working_link = get_working_link(source_url)
+    
+    if not working_link:
+        # Returns a 503 instead of crashing, tells you to check logs
+        return "Stream extraction failed. Check Render logs for Proxy or YouTube errors.", 503
 
-        # Redirect Chrome/Player to the direct YouTube stream link
-        return redirect(working_link)
-    except Exception as fatal_e:
-        logging.error(f"FATAL ERROR: {fatal_e}")
-        return "Internal App Error.", 500
+    return redirect(working_link)
 
 if __name__ == "__main__":
-    app.run()
+    # Use environment port for Render compatibility
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
